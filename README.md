@@ -44,6 +44,11 @@ denendi (`python tools/model_kiyas.py <alias> ...`). Elenenler ve sebepleri
 PDF'ten yalnızca **metin katmanı** okunur — taranmış/fotoğraflanmış PDF'te metin
 yoktur, OCR yapılmaz; ingest böyle dosyaları atlayıp raporlar.
 
+PDF'in gömülü font subset'i çözülemediğinde çıkarım `/gid00047` gibi okunamaz glif
+kodları üretir. Böyle parçalar ingest sırasında **elenir ve raporlanır** (mevcut
+corpus'ta 807 parçanın 11'i). Sayı yoğun parçalar (tablolar, ölçüm sonuçları)
+bilerek elenmez — içlerinde gerçek cevap olabilir.
+
 ## Kurulum
 
 **Gereken:** Windows 10/11, Python 3.11+ (3.13 ile test edildi), ~5 GB disk.
@@ -76,6 +81,18 @@ klasörlerini doğrudan silebilirsiniz; eksik model bir sonraki çalıştırmada
 yeniden iner.
 
 ## Kullanım
+
+PowerShell'de en kolayı başlatıcıyı kullanmaktır (venv'deki Python'u seçer ve
+Türkçe için çıktı kodlamasını ayarlar):
+
+```powershell
+.ag.ps1                            # doğrudan sohbet
+.ag.ps1 ask "sorunuz"
+.ag.ps1 ingest --reset
+.ag.ps1 status
+```
+
+Başlatıcısız eşdeğeri:
 
 ```bash
 python main.py check                 # ortam ve model kontrolü

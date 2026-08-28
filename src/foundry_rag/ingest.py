@@ -68,7 +68,20 @@ def ingest_corpus(
             say(f"  ATLANDI {path.name}: boş")
             continue
 
-        say(f"  {source}: {len(chunks)} chunk")
+        # Okunamaz çıkarım artıklarını at (bkz. chunking.kullanilabilir).
+        ham_sayi = len(chunks)
+        chunks = [c for c in chunks if chunking.kullanilabilir(c)]
+        atilan = ham_sayi - len(chunks)
+
+        if not chunks:
+            skipped.append((path.name, "tüm parçalar okunamaz metin"))
+            say(f"  ATLANDI {path.name}: {ham_sayi} parçanın tamamı okunamaz")
+            continue
+
+        etiket = f"  {source}: {len(chunks)} chunk"
+        if atilan:
+            etiket += f"  ({atilan} okunamaz parça atıldı)"
+        say(etiket)
         for start in range(0, len(chunks), batch_size):
             batch = chunks[start : start + batch_size]
             vectors = client.embed([embedding_metni(source, c) for c in batch])

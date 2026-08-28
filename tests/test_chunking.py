@@ -100,3 +100,24 @@ def test_kaynak_adi_corpus_koke_gore_goreli(tmp_path):
     source, chunks = chunking.chunk_file(hedef, tmp_path)
     assert source == "alt/notlar.md"
     assert chunks == ["İçerik burada."]
+
+
+def test_glif_kodu_iceren_chunk_elenir():
+    """pypdf font subset'ini çözemeyince "/gid00047" gibi kodlar üretiyor."""
+    cop = "/gid00047/gid00036/gid00042/gid00041/gid00028 /gid00039/gid00003"
+    assert not chunking.kullanilabilir(cop)
+
+
+def test_normal_metin_elenmez():
+    assert chunking.kullanilabilir("Rawls'un siyasal kişi kavramı iki ahlaki güce dayanır.")
+
+
+def test_tek_tuk_gecen_kod_yanlis_alarm_yapmaz():
+    metin = "Yazı tipi gömme sırasında /gid00012 kodu görülebilir; bu normaldir."
+    assert chunking.kullanilabilir(metin)
+
+
+def test_sayi_yogun_tablo_ELENMEZ():
+    """Tablo verisi çöp değildir — içinde gerçek cevap olabilir."""
+    tablo = "Conscious 1.8±1.1 36.8±3.9 0.2±0.3 61.2±3.9 0.0±0.0 Moral consid. of AIs"
+    assert chunking.kullanilabilir(tablo)

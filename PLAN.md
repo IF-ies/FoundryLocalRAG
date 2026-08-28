@@ -176,6 +176,13 @@ Hepsi ölçülerek doğrulandı (228 chunk'lık corpus + 13 uçtan uca test + 11
   olduğu hâlde "cevaplayamıyorum" diyordu. "Kısmen cevaplıyorsa cevaplayabildiğin
   kadarını ver" kuralı eklenince yanlış negatif kalktı, cevaplanamaz sorular
   yine "bilmiyorum" demeye devam etti (13/13 e2e testi geçiyor).
+- **PDF çıkarımı sessizce çöp üretebiliyor.** `05-agi-tanimi-savunma.pdf`'in bazı
+  sayfalarında gömülü font subset'i çözülemediği için metin `/gid00047/gid00036...`
+  şeklinde çıktı. Bu parçalar retrieval'a girip bağlama düşünce model onları
+  yorumlamaya çalışıp saçma cevap üretti ("pencere kullanım örnekleri"). 807
+  parçanın 11'i böyleydi. Artık ingest bunları eleyip raporluyor. Ölçülen etki:
+  doğruluk skoru DEĞİŞMEDİ (10/13), ama çöp bağlamdan çıktı ve o sorunun süresi
+  21.7 → 8.5 sn'ye indi. Sayı yoğun tablo parçaları bilerek elenmedi.
 - **🔴 KENDİ YAZDIĞIM ÖZET DOSYASI ÖLÇÜMÜ ŞİŞİRDİ.** Corpus'a makalelerin künyesini
   ve özetlerini içeren bir `00-kaynaklar.md` koymuştum. Değerlendirme 11/13
   veriyordu; o dosyayı corpus'tan çıkarınca **8/13**'e düştü. Üç soruyu

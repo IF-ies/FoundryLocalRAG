@@ -16,6 +16,13 @@ SUPPORTED_SUFFIXES = {".md", ".txt", ".docx", ".pdf"}
 _PARAGRAPH_SPLIT = re.compile(r"\n\s*\n")
 _SENTENCE_SPLIT = re.compile(r"(?<=[.!?…])\s+")
 
+# PDF'te gömülü font subset'i çözülemediğinde pypdf karakterleri "/gid00047"
+# gibi glif numaralarına çevirir. Bu metin okunamaz çöptür: retrieval'a girip
+# bağlama düşerse model onu yorumlamaya çalışıp saçma cevap üretir (ölçüldü).
+_GLIF_KODU = re.compile(r"/gid\d{3,}")
+# Tek tük geçen bir kod yanlış alarm olabilir; yoğunlaşma aranır.
+_GLIF_ESIGI = 3
+
 
 def read_text(path: Path) -> str:
     """Desteklenen bir dosyayı düz metne çevir."""
@@ -159,6 +166,15 @@ def chunk_text(
     if current:
         chunks.append(current)
     return chunks
+
+
+def kullanilabilir(chunk: str) -> bool:
+    """Chunk anlamlı metin mi, yoksa çıkarım artığı mı?
+
+    YALNIZCA okunamaz glif kodları elenir. Sayı yoğun parçalar (tablolar,
+    ölçüm sonuçları) BİLEREK elenmez — içlerinde gerçek cevap olabilir.
+    """
+    return len(_GLIF_KODU.findall(chunk)) < _GLIF_ESIGI
 
 
 def chunk_file(path: Path, corpus_dir: Path | None = None) -> tuple[str, list[str]]:
