@@ -22,8 +22,8 @@
 | Katman | Seçim | Not |
 |---|---|---|
 | LLM runtime | **Microsoft Foundry Local** 0.10.3 + SDK 1.2.4 | On-device, offline; CUDA/DirectML/CPU |
-| Chat modeli | **phi-3.5-mini** (2.1 GB) | Katalogda doğrulandı |
-| Embedding | **qwen3-embedding-0.6b** (478 MB) | Katalogda doğrulandı |
+| Chat modeli | **ministral-3-3b-instruct-2512** (3.6 GB) | 6 aday ölçülüp seçildi |
+| Embedding | **qwen3-embedding-0.6b** (478 MB) | 1024 boyut, CUDA varyantı |
 | Veri katmanı | **SQLite** (tek dosya) | Chunk metni + float32 embedding BLOB |
 | Arama | Python'da **cosine similarity** (brute-force) | Küçük N için yeterli |
 | Dil / Ortam | Python 3.13 + venv | `main.py`, `requirements.txt` |
@@ -55,7 +55,7 @@ Kullanıcıya cevap  (hepsi tek makinede, internetsiz)
 
 ### Faz 0 — Ortam & İskelet
 - [x] Foundry Local kurulumu (`winget install Microsoft.FoundryLocal` → 0.10.3)
-- [x] Katalog doğrulaması: `phi-3.5-mini` ve `qwen3-embedding-0.6b` GERÇEKTEN var
+- [x] Katalog doğrulaması: aday modeller GERÇEKTEN var (`foundry model list`)
 - [x] Execution provider'lar indirildi (CUDA / WebGPU / OpenVINO / TensorRT-RTX)
 - [x] "Hello Model" testi: `python main.py check`
 - [x] Proje klasörü, `main.py`, `requirements.txt`, venv
@@ -106,7 +106,9 @@ Kullanıcıya cevap  (hepsi tek makinede, internetsiz)
 - [x] Hızlı testler (model gerekmez): chunk'lama, DB, benzerlik, prompt, ingest
 - [x] Değerlendirme seti: cevaplanabilir + **kasıtlı cevaplanamaz** sorular (`-m model`)
 - [x] Edge case: boş sorgu, çok genel soru, boş veritabanı
-- [x] Yanıt süresi ölçümü
+- [x] Model kıyası (`tools/model_kiyas.py`) — 6 aday aynı sorularla ölçüldü
+- [x] `MIN_SIMILARITY` gerçek corpus skorlarıyla ölçülüp 0.30 → 0.35 yapıldı
+- [x] Yanıt süresi ölçümü: **1.32 sn** (e2e testi), gerçek corpus'ta 2.1-4.1 sn
 - [x] README (amaç, kurulum, çalıştırma)
 - [x] **Checkpoint: commit + push**
 
@@ -128,10 +130,12 @@ yapıldı — Azure aboneliği devreye girmedi, ücret oluşmadı.
 
 ## 5. Başarı Kriterleri
 
+Hepsi ölçülerek doğrulandı (49 chunk'lık gerçek corpus + 13 uçtan uca test):
+
 - ✅ İnternetsiz çalışır (modeller indirildikten sonra)
 - ✅ Belge havuzunda olan soruya **kaynak-temelli doğru** cevap verir
-- ✅ Bilgi yoksa **"bilmiyorum"** der (halüsinasyon yok)
-- ✅ Yanıt süresi tipik laptopta makul
+- ✅ Bilgi yoksa **"bilmiyorum"** der — eşiği geçen parça yoksa model hiç çağrılmaz
+- ✅ Yanıt süresi **1.32 sn** (hedef 1-3 sn), gerçek corpus'ta 2.1-4.1 sn
 
 ## 6. Öğrenilenler
 
@@ -147,6 +151,28 @@ yapıldı — Azure aboneliği devreye girmedi, ücret oluşmadı.
   uydurmak yerine gerçek davranış ölçülüp teste yazıldı.
 - **Bağlam boşken modeli hiç çağırmamak**, "bilmiyorum" garantisini prompt'a güvenmekten
   çok daha sağlam kılıyor — model uydurmak istese bile elinde malzeme olmuyor.
+- **Model seçimi ölçülmeden yapılamaz.** Altı aday aynı üç soruyla denendi
+  (`tools/model_kiyas.py`) ve hiçbirini kâğıt üzerinden tahmin edemezdik:
+  `qwen3-4b` cevabın içine `<think>` bloğu sızdırıyor, `qwen3.5-2b` Türkçeyi
+  bozuyor ("Zrdali", "BuBelgeleCevaplayamıyorum"), `qwen2.5-7b` doğru ama RAG'de
+  8-11 sn. Kazanan `ministral-3-3b`: doğru ve 2-4 sn.
+- **"Bilmiyorum" demek uydurmayı DURDURMUYOR.** `qwen2.5-1.5b` ölçümde
+  "cevaplayamıyorum" dedi ve hemen ardından "2024 cirosu 1000 tane olacaktır"
+  diye rakam uydurdu. Tespit doğru çalışıyordu ama kullanıcı uydurma kuyruğu
+  okuyordu. Artık cevap "bilmiyorum" ise metin sabit ifadeye indiriliyor.
+- **Cevabın tam metnini aramak kırılgan.** `is_unknown` başta birebir eşitlik
+  arıyordu; `phi-3.5-mini` "cevaplamadım" deyince tespit kaçıyordu. Artık
+  ifadenin değişmeyen çekirdeği (`UNKNOWN_MARKER`) aranıyor.
+- **Model kaynakça da uydurabiliyor.** İlk denemede cevabın altına
+  `https://belge-sayfası-1` gibi sahte bağlantılar yazdı; prompt'a "yalnızca
+  bağlamdaki dosya adları, URL uydurma" kuralı eklendi.
+- **Aşırı temkin de bir hata.** İlk sıkı prompt ile model, bağlamda bilgi
+  olduğu hâlde "cevaplayamıyorum" diyordu. "Kısmen cevaplıyorsa cevaplayabildiğin
+  kadarını ver" kuralı eklenince yanlış negatif kalktı, cevaplanamaz sorular
+  yine "bilmiyorum" demeye devam etti (13/13 e2e testi geçiyor).
+- **Diakritiksiz Türkçe küçük modelleri bozuyor.** `check` komutunda soru
+  "Turkiye'nin baskenti" diye ASCII yazılınca `phi-3.5-mini` anlamsız tekrar
+  döngüsüne girdi; düzgün Türkçeyle aynı model "Ankara" dedi.
 
 ## 7. Sonraki Adım
 - Gerçek ders notlarını `corpus/` klasörüne koyup tekrar `ingest` (seçenek **a**)

@@ -28,14 +28,18 @@ Eşiği (`MIN_SIMILARITY`) geçen hiçbir parça yoksa **model hiç çağrılmaz
 
 | Rol | Model | Boyut |
 |---|---|---|
-| Sohbet | `phi-3.5-mini` | 2.1 GB |
+| Sohbet | `ministral-3-3b-instruct-2512` | 3.6 GB |
 | Embedding | `qwen3-embedding-0.6b` | 478 MB |
+
+Sohbet modeli tahminle değil **ölçülerek** seçildi: altı aday aynı Türkçe sorularla
+denendi (`python tools/model_kiyas.py <alias> ...`). Elenenler ve sebepleri
+`src/foundry_rag/config.py` içinde yazılıdır.
 
 Foundry Local donanıma uygun varyantı kendisi seçer (CUDA GPU varsa onu kullanır).
 Model değiştirmek için kod düzenlemeye gerek yok:
 
 ```bash
-set FOUNDRY_RAG_CHAT_MODEL=qwen3-4b
+set FOUNDRY_RAG_CHAT_MODEL=qwen2.5-7b
 ```
 
 ## Kurulum
@@ -82,10 +86,10 @@ olmayan eski parçalar silinir.
 ## Testler
 
 ```bash
-# Hızlı testler (model gerekmez, saniyeler sürer)
+# Hızlı testler (model gerekmez, ~0.1 sn)  -> 46 test
 pytest
 
-# Gerçek modelle uçtan uca değerlendirme (yavaş)
+# Gerçek modelle uçtan uca değerlendirme (~20 sn)  -> 13 test
 set FOUNDRY_RAG_E2E=1
 pytest -m model -v
 ```
@@ -108,16 +112,30 @@ src/foundry_rag/
   retrieval.py             kosinüs benzerliği, top-K, eşik
   ingest.py                belge -> parça -> vektör -> veritabanı
   rag.py                   prompt kurgusu ve answer_query
+tools/model_kiyas.py       sohbet modellerini aynı sorularla kıyaslar
 corpus/                    kaynak belgeler
 data/rag.db                üretilen veritabanı (git'e girmez)
 tests/                     pytest
 ```
 
+## Ölçülen sonuçlar
+
+49 chunk'lık gerçek corpus üzerinde (RTX 4060, CUDA):
+
+| Ölçüm | Sonuç |
+|---|---|
+| Yanıt süresi (uçtan uca test) | 1.32 sn |
+| Yanıt süresi (gerçek corpus, uzun cevap) | 2.1 - 4.1 sn |
+| Eşik altı soru (model hiç çağrılmaz) | ~0.0 sn |
+| Embedding boyutu | 1024 |
+| Konuyla ilgili parça benzerliği | 0.39 - 0.57 |
+| Alakasız soruda en iyi parça | 0.30 - 0.31 |
+
 ## Ayarlar
 
 | Ortam değişkeni | Varsayılan | Ne işe yarar |
 |---|---|---|
-| `FOUNDRY_RAG_CHAT_MODEL` | `phi-3.5-mini` | sohbet modeli |
+| `FOUNDRY_RAG_CHAT_MODEL` | `ministral-3-3b-instruct-2512` | sohbet modeli |
 | `FOUNDRY_RAG_EMBED_MODEL` | `qwen3-embedding-0.6b` | embedding modeli |
 | `FOUNDRY_RAG_CORPUS` | `corpus/` | belge klasörü |
 | `FOUNDRY_RAG_DB` | `data/rag.db` | veritabanı yolu |

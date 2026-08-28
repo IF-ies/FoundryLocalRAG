@@ -23,7 +23,7 @@ from foundry_rag.ingest import ingest_corpus  # noqa: E402
 def _client():
     from foundry_rag.client import FoundryClient
 
-    print("Foundry Local hazirlaniyor (ilk calistirmada model indirilir)...")
+    print("Foundry Local hazırlanıyor (ilk çalıştırmada model indirilir)...")
     client = FoundryClient(progress=print)
     print(f"  chat      : {client.chat_model_id}")
     print(f"  embedding : {client.embed_model_id}")
@@ -33,14 +33,16 @@ def _client():
 def cmd_check(_args: argparse.Namespace) -> int:
     client = _client()
 
-    vector = client.embed_one("merhaba dunya")
+    vector = client.embed_one("merhaba dünya")
     print(f"  embedding boyutu: {len(vector)}")
 
     reply = client.chat(
-        [{"role": "user", "content": "Tek kelimeyle cevapla: Turkiye'nin baskenti neresidir?"}]
+        # Soru DÜZGÜN Türkçe yazılmalı: diakritiksiz ASCII ile sorulduğunda
+        # küçük modeller anlamsız tekrar döngüsüne giriyor (ölçüldü).
+        [{"role": "user", "content": "Türkiye'nin başkenti neresidir? Tek kelimeyle cevapla."}]
     )
     print(f"  chat testi: {reply!r}")
-    print("Ortam hazir.")
+    print("Ortam hazır.")
     return 0
 
 

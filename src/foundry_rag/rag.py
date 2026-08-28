@@ -16,11 +16,15 @@ SYSTEM_PROMPT = f"""Sen bir belge asistanısın. SADECE sana verilen BAĞLAM bö
 
 Kurallar:
 1. Cevabı yalnızca BAĞLAM'dan üret. Genel bilgine, tahminine veya varsayımına ASLA başvurma.
-2. BAĞLAM soruyu cevaplamaya yetmiyorsa tam olarak şunu yaz: "{config.UNKNOWN_ANSWER}"
-   Ardından istersen tek cümleyle neyin eksik olduğunu belirt. Uydurma yapma.
-3. Cevabın sonunda kullandığın kaynakları "Kaynaklar:" başlığı altında listele.
-4. Soru hangi dilde sorulduysa o dilde cevap ver.
-5. Kısa ve doğrudan yaz."""
+2. BAĞLAM soruyu KISMEN cevaplıyorsa, cevaplayabildiğin kadarını ver ve neyin
+   eksik kaldığını tek cümleyle belirt. Kısmi bilgi varken "cevaplayamıyorum" deme.
+3. BAĞLAM'da soruyla ilgili HİÇBİR bilgi yoksa tam olarak şunu yaz:
+   "{config.UNKNOWN_ANSWER}" — ve başka hiçbir şey ekleme, tahmin yürütme.
+4. Cevabın sonunda kullandığın kaynakları "Kaynaklar:" başlığı altında listele.
+   Kaynak olarak YALNIZCA BAĞLAM'da yazan dosya adlarını yaz. Bağlantı, URL veya
+   sayfa adresi UYDURMA — bağlamda yoksa yazma.
+5. Soru hangi dilde sorulduysa o dilde cevap ver.
+6. Kısa ve doğrudan yaz."""
 
 
 class Embedder(Protocol):
@@ -47,7 +51,12 @@ class Answer(NamedTuple):
 
     @property
     def is_unknown(self) -> bool:
-        return config.UNKNOWN_ANSWER in self.text
+        """Model 'bu belgelerle cevaplayamam' demiş mi?
+
+        Birebir değil, ifadenin çekirdeğine bakılır — modeller cümleyi
+        kendilerince kuruyor (bkz. config.UNKNOWN_MARKER).
+        """
+        return config.UNKNOWN_MARKER in self.text.casefold()
 
 
 def build_context(hits: Sequence[Hit]) -> str:
@@ -96,4 +105,14 @@ def answer_query(
         return Answer(question, config.UNKNOWN_ANSWER, [], time.perf_counter() - started)
 
     text = client.chat(build_messages(question, hits))
-    return Answer(question, text, hits, time.perf_counter() - started)
+    cevap = Answer(question, text, hits, time.perf_counter() - started)
+
+    if cevap.is_unknown:
+        # Model "cevaplayamam" dedikten SONRA uydurma eklemeye devam edebiliyor
+        # (ölçüldü: qwen2.5-1.5b "...cevaplayamıyorum." dedi, hemen ardından
+        # "2024 cirosu 1000 tane olacaktır" diye rakam uydurdu). Kullanıcı o
+        # kuyruğu okuyup gerçek sanabilir; bu yüzden cevabı sabit ifadeye
+        # indiriyoruz. Getirilen parçalar yine gösterilir, şeffaflık korunur.
+        return Answer(question, config.UNKNOWN_ANSWER, hits, cevap.elapsed_seconds)
+
+    return cevap

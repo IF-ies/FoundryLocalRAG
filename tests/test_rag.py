@@ -60,6 +60,66 @@ def test_alakasiz_soru_modele_hic_gitmez(conn):
     assert answer.hits == []
 
 
+def test_bilmiyorum_dedikten_sonraki_uydurma_kullaniciya_gosterilmez(conn):
+    """Gerçek bir zafiyetin regresyon testi.
+
+    qwen2.5-1.5b ölçümde "Bu soruyu verilen belgelerle cevaplayamıyorum." dedi
+    ve HEMEN ARDINDAN "2024 cirosu 1000 tane olacaktır" diye rakam uydurdu.
+    is_unknown True dönüyordu ama kullanıcı uydurma kuyruğu okumaya devam ediyordu.
+    """
+    uydurmali = """Bu soruyu verilen belgelerle cevaplayamıyorum.
+Kaynaklar: hayvan.md
+
+Cevap: Kedinin fiyatı 1000 liradır."""
+    client = FakeClient(VOCAB, chat_reply=uydurmali)
+    _hazirla(conn, client)
+
+    answer = rag.answer_query(client, conn, "kedi kaç lira", min_similarity=0.1)
+
+    assert client.chat_calls == 1, "model çağrılmalıydı (eşiği geçen chunk var)"
+    assert answer.is_unknown
+    assert answer.text == config.UNKNOWN_ANSWER
+    assert "1000" not in answer.text, "uydurma kuyruk kullanıcıya sızdı"
+    # Şeffaflık: hangi parçalara bakıldığı yine görünmeli.
+    assert answer.hits
+
+
+def test_gercek_cevap_kirpilmaz(conn):
+    """Sabitleme YALNIZCA 'bilmiyorum' cevaplarında olmalı, gerçek cevapta değil."""
+    client = FakeClient(
+        VOCAB, chat_reply="Kedi evcil bir hayvandır.\n\nKaynaklar: hayvan.md"
+    )
+    _hazirla(conn, client)
+
+    answer = rag.answer_query(client, conn, "kedi nedir", min_similarity=0.1)
+
+    assert not answer.is_unknown
+    assert "Kaynaklar: hayvan.md" in answer.text
+
+
+def test_bilmiyorum_tespiti_modelin_kendi_ifadesini_de_yakalar():
+    """Gerçekte ölçülen varyasyonlar. Birebir arama yapsaydık ilki kaçardı."""
+
+    def cevap(metin: str) -> rag.Answer:
+        return rag.Answer("s", metin, [], 0.1)
+
+    # phi-3.5-mini'nin gerçekten verdiği cevap:
+    assert cevap("Bu soruyu verilen belgelerle cevaplamadım.").is_unknown
+    # qwen2.5-7b'nin gerçekten verdiği cevap:
+    assert cevap("Bu soruyu verilen belgelerle cevaplayamıyorum.").is_unknown
+    # Yapılandırılmış tam ifade ve kaynak satırı eklenmiş hâli:
+    assert cevap(config.UNKNOWN_ANSWER).is_unknown
+    assert cevap(config.UNKNOWN_ANSWER + "\n\nKaynaklar: a.md").is_unknown
+
+    # Gerçek bir cevap 'bilmiyorum' sayılmamalı:
+    assert not cevap("Zerdali Makina'yı Nuray Akbulut kurdu.").is_unknown
+
+
+def test_unknown_marker_tam_ifadenin_icinde():
+    """Çekirdek ifade tam cevabın içinde geçmezse tespit hiç çalışmaz."""
+    assert config.UNKNOWN_MARKER in config.UNKNOWN_ANSWER.casefold()
+
+
 def test_prompt_getirilen_baglami_icerir(conn):
     client = FakeClient(VOCAB)
     _hazirla(conn, client)
