@@ -232,3 +232,11 @@ tests/                     pytest
 `temperature` varsayılanı 0'dır: ayar karşılaştırması yapabilmek için üretimin
 tekrarlanabilir olması gerekiyor. 0.2'de aynı ayarla yapılan koşuların aynı sonucu
 verdiğinden emin olunamıyordu; 0.0'da iki koşu birebir aynı çıkıyor.
+
+## Lisans
+
+[MIT](LICENSE) — kullanabilir, değiştirebilir, dağıtabilirsiniz; telif satırını koruyun.
+
+Not: `corpus/` klasöründeki makalelerin telifi kendi yazarlarına aittir ve bu depoya
+dahil edilmemiştir; [`KAYNAKLAR.md`](KAYNAKLAR.md) yalnızca künyeyi ve indirme
+komutlarını içerir.
