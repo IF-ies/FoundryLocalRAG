@@ -6,6 +6,29 @@ Belgelerinizi okur, sorularınızı yalnızca o belgelere dayanarak cevaplar, bi
 
 > Bu depo, kurumsal sürüm olan **IF-ies_PrivateAI**'ın temel (PoC) katmanıdır.
 
+<details>
+<summary><b>In English</b></summary>
+
+A fully offline document question-answering assistant built on **Microsoft Foundry
+Local**. It reads your documents, answers only from them, and says "I don't know"
+when the answer isn't there. No data ever leaves the machine — no cloud, no API key.
+
+Stack: Foundry Local (ONNX) · `ministral-3-3b` for chat · `qwen3-embedding-0.6b`
+for embeddings · SQLite with float32 embedding blobs · brute-force cosine similarity.
+Reads `.md`, `.txt`, `.docx` and `.pdf`.
+
+Every setting was **measured, not guessed**: the chat model was picked by comparing
+six candidates on the same questions; chunk size was tuned per corpus (300 chars won
+on short lecture notes, 1400 on long academic papers); `top_k=5` was tried twice and
+rejected because it cost time without improving accuracy.
+
+Current score on the built-in evaluation set: **10/13, 1.9 s average**. The remaining
+three failures are retrieval misses — documented, not hidden.
+
+Documentation is in Turkish; the code and comments are self-contained.
+
+</details>
+
 ---
 
 ## Nasıl çalışır
@@ -86,10 +109,14 @@ PowerShell'de en kolayı başlatıcıyı kullanmaktır (venv'deki Python'u seçe
 Türkçe için çıktı kodlamasını ayarlar):
 
 ```powershell
-.ag.ps1                            # doğrudan sohbet
-.ag.ps1 ask "sorunuz"
-.ag.ps1 ingest --reset
-.ag.ps1 status
+.
+ag.ps1                            # doğrudan sohbet
+.
+ag.ps1 ask "sorunuz"
+.
+ag.ps1 ingest --reset
+.
+ag.ps1 status
 ```
 
 Başlatıcısız eşdeğeri:
