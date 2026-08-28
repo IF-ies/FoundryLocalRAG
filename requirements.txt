@@ -10,5 +10,8 @@ numpy>=2.0.0
 # .docx belgelerini okumak için
 python-docx>=1.1.0
 
+# .pdf belgelerinden metin çıkarmak için (OCR YOK — taranmış PDF okunmaz)
+pypdf>=5.0.0
+
 # Test
 pytest>=8.0.0

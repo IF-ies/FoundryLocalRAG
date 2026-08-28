@@ -11,7 +11,7 @@ from pathlib import Path
 
 from . import config
 
-SUPPORTED_SUFFIXES = {".md", ".txt", ".docx"}
+SUPPORTED_SUFFIXES = {".md", ".txt", ".docx", ".pdf"}
 
 _PARAGRAPH_SPLIT = re.compile(r"\n\s*\n")
 _SENTENCE_SPLIT = re.compile(r"(?<=[.!?…])\s+")
@@ -24,6 +24,8 @@ def read_text(path: Path) -> str:
         return path.read_text(encoding="utf-8", errors="replace")
     if suffix == ".docx":
         return _read_docx(path)
+    if suffix == ".pdf":
+        return _read_pdf(path)
     raise ValueError(f"Desteklenmeyen dosya türü: {path.suffix} ({path.name})")
 
 
@@ -43,6 +45,46 @@ def _read_docx(path: Path) -> str:
             if any(cells):
                 parts.append(" | ".join(cells))
     return "\n\n".join(part.strip() for part in parts if part.strip())
+
+
+def _read_pdf(path: Path) -> str:
+    """PDF'ten metin çıkar.
+
+    DİKKAT: yalnızca metin katmanı okunur. Taranmış/fotoğraflanmış PDF'te metin
+    katmanı yoktur ve sonuç boş döner (ingest böyle dosyaları atlayıp raporlar) —
+    OCR yapılmaz.
+    """
+    try:
+        from pypdf import PdfReader
+    except ImportError as exc:  # pragma: no cover - kurulum hatası
+        raise RuntimeError(
+            "pdf okumak için 'pypdf' gerekli: pip install -r requirements.txt"
+        ) from exc
+
+    reader = PdfReader(str(path))
+    sayfalar: list[str] = []
+    for sayfa in reader.pages:
+        metin = (sayfa.extract_text() or "").strip()
+        if metin:
+            sayfalar.append(_pdf_satirlarini_birlestir(metin))
+    return "\n\n".join(sayfalar)
+
+
+def _pdf_satirlarini_birlestir(metin: str) -> str:
+    """PDF'in sayfa genişliğine göre kırdığı satırları paragrafa geri çevir.
+
+    PDF'te her görsel satır ayrı bir satır sonu taşır; bunlar olduğu gibi
+    bırakılırsa her satır ayrı bir "paragraf" sanılır ve chunk'lama cümleleri
+    ortadan böler. Tek satır sonları boşluğa çevrilir, boş satırlar paragraf
+    sınırı olarak korunur.
+    """
+    paragraflar = _PARAGRAPH_SPLIT.split(metin)
+    duzeltilmis = []
+    for paragraf in paragraflar:
+        satirlar = [s.strip() for s in paragraf.splitlines() if s.strip()]
+        if satirlar:
+            duzeltilmis.append(" ".join(satirlar))
+    return "\n\n".join(duzeltilmis)
 
 
 def iter_corpus_files(corpus_dir: Path | None = None) -> list[Path]:

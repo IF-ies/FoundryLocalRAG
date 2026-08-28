@@ -27,6 +27,7 @@
 | Veri katmanı | **SQLite** (tek dosya) | Chunk metni + float32 embedding BLOB |
 | Arama | Python'da **cosine similarity** (brute-force) | Küçük N için yeterli |
 | Dil / Ortam | Python 3.13 + venv | `main.py`, `requirements.txt` |
+| Belge türleri | `.md` · `.txt` · `.docx` · `.pdf` | PDF'te OCR YOK, yalnız metin katmanı |
 | Arayüz | **CLI** (`check/ingest/ask/chat/status`) | |
 
 ---
@@ -75,7 +76,7 @@ Kullanıcıya cevap  (hepsi tek makinede, internetsiz)
 - [x] **Checkpoint: commit + push**
 
 ### Faz 3 — Ingestion Pipeline
-- [x] Belge okuma: `.md`, `.txt`, `.docx`
+- [x] Belge okuma: `.md`, `.txt`, `.docx`, `.pdf`
 - [x] Paragraf sınırında chunk'lama + overlap; hiçbir chunk sınırı aşmaz
 - [x] Her chunk embed edilip SQLite'a yazılır (toplu, 16'lık gruplar)
 - [x] Idempotent: tekrar çalışınca kayıt çoğalmaz; belge kısalırsa artık parçalar silinir
@@ -137,11 +138,10 @@ Hepsi ölçülerek doğrulandı (228 chunk'lık corpus + 13 uçtan uca test + 11
 - ✅ Bilgi yoksa **"bilmiyorum"** der — eşiği geçen parça yoksa model hiç çağrılmaz
 - ✅ Yanıt süresi **1.32 sn** (hedef 1-3 sn), gerçek corpus'ta 1.9-2.4 sn
   (dosya cache'i soğukken ilk koşu 4.1 sn; doğruluk etkilenmiyor)
-- ✅ Değerlendirme seti **10/11** — kalan tek soru Seviye 1'in bilinen mimari
-  sınırı: doğru cevabı içeren parça 11. sırada (skor 0.745), ilk üçe giremiyor
-  çünkü aynı belgenin benzer parçaları 0.76-0.82 ile önünde. Brute-force cosine
-  bu kadar yakın skorları ayıramaz; **Seviye 2'nin planındaki reranker** tam
-  olarak bunun için var.
+- ✅ Değerlendirme seti (yapay zekâ felsefesi corpus'u, 6 arXiv makalesi, 807 parça):
+  **10/13**, ortalama 1.9 sn. Kalan üç hata retrieval'in kaçırdığı bilgiler —
+  ilgili parça ilk üçe giremiyor. Brute-force cosine birbirine yakın skorları
+  ayıramıyor; **Seviye 2'nin planındaki reranker** tam olarak bunun için var.
 
 ## 6. Öğrenilenler
 
@@ -176,6 +176,28 @@ Hepsi ölçülerek doğrulandı (228 chunk'lık corpus + 13 uçtan uca test + 11
   olduğu hâlde "cevaplayamıyorum" diyordu. "Kısmen cevaplıyorsa cevaplayabildiğin
   kadarını ver" kuralı eklenince yanlış negatif kalktı, cevaplanamaz sorular
   yine "bilmiyorum" demeye devam etti (13/13 e2e testi geçiyor).
+- **🔴 KENDİ YAZDIĞIM ÖZET DOSYASI ÖLÇÜMÜ ŞİŞİRDİ.** Corpus'a makalelerin künyesini
+  ve özetlerini içeren bir `00-kaynaklar.md` koymuştum. Değerlendirme 11/13
+  veriyordu; o dosyayı corpus'tan çıkarınca **8/13**'e düştü. Üç soruyu
+  makaleler değil benim özetim cevaplıyormuş. Dahası künyeli koşuda model
+  "genel zekâyı **on altı** bilişsel alana ayırıyor" dedi (makale **on** diyor)
+  ve testim bunu kaçırdı. **Ders: değerlendirme corpus'una, cevabı hazır veren
+  hiçbir şey konmaz** — künye artık repo kökünde (`KAYNAKLAR.md`), corpus'ta değil.
+  Bu keşfedilene kadar yapılmış TÜM chunk ölçümleri şişkindi ve baştan yapıldı.
+- **Ayar kıyası için üretim tekrarlanabilir olmalı.** `temperature=0.2` iken aynı
+  ayarla yapılan koşuların aynı sonucu verdiğinden emin olunamıyordu. 0.0'a
+  çekilince iki koşu birebir aynı çıktı (10/13, aynı üç hata) — ancak o zaman
+  chunk kıyası anlamlı oldu.
+- **En iyi chunk boyutu CORPUS'A BAĞLI, sabit bir doğru yok.** İki zıt ölçüm:
+  kısa ders notunda 300 en iyi (10/11), uzun akademik makalelerde 1400 en iyi
+  (10/13) ve 300 orada 8/13'e düşüyor. Kısa belgede küçük chunk ayrıntıyı öne
+  çıkarır; uzun metinde argüman bütünlüğü gerekir ve binlerce küçük parça
+  birbirine benzeyip kaybolur.
+- **Yavaşlığın sebebini ÖLÇMEDEN düzeltmeye kalkmadım, iyi ki:** 3914 parçada
+  süre 7.8 sn'ye çıkınca "SQLite'tan her sorguda 16 MB okuyoruz, önbellek
+  gerekir" diye düşündüm. Kırılım şunu gösterdi — chunk okuma **0.03 sn**,
+  embedding 0.25 sn, benzerlik 0.13 sn, **model üretimi 2.48 sn**. Önbellek
+  tamamen boşa iş olurdu.
 - **Chunk boyutu ölçülerek seçildi: 1200 → 7/11, 500 → 8/11, 300 → 10/11.**
   Büyük chunk'ta bir ders notunun tamamı tek vektöre sıkışıyor ve içindeki
   ayrıntılar ("proje teslimi 7 Ocak", "geç teslim 10 puan") sorguya yakın
@@ -203,7 +225,7 @@ Hepsi ölçülerek doğrulandı (228 chunk'lık corpus + 13 uçtan uca test + 11
   döngüsüne girdi; düzgün Türkçeyle aynı model "Ankara" dedi.
 
 ## 7. Sonraki Adım
-- Kullanılmayan model klasörlerini sil (~15 GB): `~/.FoundryLocalRAG/cache/models/`
-  altında yalnızca `ministral-3-3b-*` ve `qwen3-embedding-0.6b-*` gerekli
-- Gerçek ders notlarını `corpus/` klasörüne koyup tekrar `ingest` (seçenek **a**)
+- Kalan üç hata için **reranker** (Seviye 2 kapsamı) ya da hibrit arama (BM25 + vektör)
+- Başka bir belge seti konulacaksa: değerlendirme sorularını yeniden yaz, chunk
+  boyutunu o corpus'ta ölç
 - Ardından → **Seviye 2: `IF-ies_PrivateAI`** (çok kullanıcılı, rol bazlı, on-prem kurumsal ürün)

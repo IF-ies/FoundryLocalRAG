@@ -26,12 +26,17 @@ CHAT_MODEL_ALIAS = os.environ.get("FOUNDRY_RAG_CHAT_MODEL", "ministral-3-3b-inst
 EMBED_MODEL_ALIAS = os.environ.get("FOUNDRY_RAG_EMBED_MODEL", "qwen3-embedding-0.6b")
 
 # Chunk'lama: paragraf sınırlarında böl, bu üst sınırı aşma.
-# ÖLÇÜLDÜ (tools/degerlendirme.py, 11 soruluk set): 1200 -> 7/11, 500 -> 8/11,
-# 300 -> 10/11. Tek chunk'a çok konu sığdırınca embedding bulanıklaşıyor ve
-# içindeki ayrıntı sorguya yakın çıkmıyor. Küçük chunk hem daha doğru hem hızlı.
-CHUNK_MAX_CHARS = int(os.environ.get("FOUNDRY_RAG_CHUNK_CHARS", "300"))
+# ⚠️ EN İYİ CHUNK BOYUTU CORPUS'A BAĞLIDIR — sabit bir doğru yok, ÖLÇÜLMELİ.
+# İki zıt ölçüm (tools/degerlendirme.py):
+#   Kısa ders notu (4 belge):  1200 -> 7/11 · 500 -> 8/11 · 300 -> 10/11  (KÜÇÜK iyi)
+#   Akademik makale (6 belge): 300 -> 8/13 · 600 -> 5/13 · 1000 -> 8/13
+#                              1400 -> 10/13 · 1800 -> 8/13              (BÜYÜK iyi)
+# Kısa belgede küçük chunk ayrıntıyı öne çıkarır; uzun akademik metinde
+# argüman bütünlüğü gerekir ve binlerce küçük parça birbirine benzeyip kaybolur.
+# Varsayılan şu anki corpus'a (felsefe makaleleri) göre 1400'dür.
+CHUNK_MAX_CHARS = int(os.environ.get("FOUNDRY_RAG_CHUNK_CHARS", "1400"))
 # Ardışık chunk'lar arasında taşınan bağlam (cümle ortasında kopan bilgi için).
-CHUNK_OVERLAP_CHARS = int(os.environ.get("FOUNDRY_RAG_CHUNK_OVERLAP", "100"))
+CHUNK_OVERLAP_CHARS = int(os.environ.get("FOUNDRY_RAG_CHUNK_OVERLAP", "150"))
 
 # Retrieval
 # TOP_K=5 iki kez denendi, doğruluğa hiçbir katkısı olmadı ama süreyi
@@ -44,7 +49,11 @@ TOP_K = int(os.environ.get("FOUNDRY_RAG_TOP_K", "3"))
 MIN_SIMILARITY = 0.35
 
 # Üretim ayarları — RAG'de yaratıcılık istemiyoruz.
-CHAT_TEMPERATURE = 0.2
+# 0.2'de ayar karşılaştırmalarının tekrarlanabilir olduğundan emin olunamıyordu.
+# 0.0'a çekilince aynı ayarla arka arkaya iki koşu BİREBİR aynı sonucu verdi
+# (10/13, aynı üç hata) — ancak o zaman chunk boyutu kıyası güvenilir oldu.
+# (Şüphelendiğim chunk=600 düşüşü gürültü değilmiş: 0.0'da da 5/13 çıktı.)
+CHAT_TEMPERATURE = float(os.environ.get("FOUNDRY_RAG_TEMPERATURE", "0.0"))
 CHAT_MAX_TOKENS = 800
 
 # Bağlamda cevap yoksa modelin vermesi gereken karşılık.

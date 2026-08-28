@@ -4,6 +4,10 @@
 "bilmiyorum değil" olduğu için doğru sanılır. Bu yüzden her cevaplanabilir
 soru için cevapta geçmesi GEREKEN anahtarlar da kontrol edilir.
 
+Sorular TÜRKÇE, belgeler İNGİLİZCE — bu kasıtlı: gerçek kullanım böyle olacak.
+Anahtarlar bu yüzden "|" ile hem Türkçe hem İngilizce karşılık içerir ve
+Türkçe ekleri yakalasın diye köke yazılır ("çekirdeğini" -> "çekirde").
+
 Kullanım:
     python tools/degerlendirme.py
     FOUNDRY_RAG_CHUNK_CHARS=500 python tools/degerlendirme.py   (kıyas için)
@@ -22,25 +26,55 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from foundry_rag import config, db, rag  # noqa: E402
 
 # (soru, cevapta geçmesi gereken anahtarlar | None = "bilmiyorum" beklenir)
+# Her anahtar için "|" ile ayrılan alternatiflerden BİRİ yeterlidir.
 SORULAR: list[tuple[str, list[str] | None]] = [
-    # --- ders notu (dışarıda bulunamayacak bilgiler) ---
-    ("Bulut Bilişim final sınavı ne zaman ve hangi derslikte yapılacak?", ["14 Ocak 2027", "B-204"]),
-    ("Dönem projesi en geç ne zaman teslim edilir?", ["7 Ocak 2027"]),
-    ("Geç teslimde günlük kaç puan kırılıyor?", ["10"]),
-    # "|" ile ayrılan alternatiflerden BİRİ yeterli — model aynı bilgiyi
-    # farklı kelimelerle ifade edebiliyor ("yasak" / "kullanılamaz").
-    ("Sınavda basılı kaynak kullanılabilir mi?", ["yasak|kullanılamaz|kullanılmaz|izin veril"]),
-    # Anahtar kelimeler Türkçe EK almış hâlleri de yakalayacak şekilde köke
-    # yazılır ("çekirdeğini" -> "çekirde"); yoksa doğru cevap yanlış sayılır.
-    ("Konteyner ile sanal makine arasındaki temel fark nedir?", ["çekirde"]),
-    ("Tip-1 hipervizör nedir?", ["donanım"]),
-    # --- proje dokümanları ---
-    ("FoundryLocalRAG projesinde hangi embedding modeli kullanılıyor?", ["qwen3-embedding"]),
-    ("Benzerlik eşiği (MIN_SIMILARITY) kaça ayarlandı?", ["0.35"]),
+    # --- 01: bilinç iddia eden modeller ---
+    ("Bilinçli olduğunu iddia edecek şekilde ince ayar yapılan model hangisidir?", ["gpt-4.1"]),
+    (
+        "İnce ayarlı model, kendi akıl yürütmesinin izlenmesine nasıl bakıyor?",
+        ["olumsuz|negatif|hoşlanm|istemi|karşı|rahatsız"],
+    ),
+    # --- 02: ahlaki statü, ilişkisel çerçeve ---
+    (
+        "Relate çerçevesi hangi gerçek vakalar üzerinden temellendiriliyor?",
+        ["lamda", "replika|replika|replika", "character"],
+    ),
+    # --- 03: yapay kişiler ---
+    (
+        "Rawls'un siyasal kişi kavramındaki iki ahlaki güç nedir?",
+        ["adalet|justice", "iyi|good"],
+    ),
+    (
+        "Yapay bir sistemin kişi sayılması için duyarlılık (sentience) şart mıdır?",
+        ["gerektirmez|gerekmez|şart değil|zorunlu değil|hayır|değildir|olmadan"],
+    ),
+    # --- 04: kimin değerleri ---
+    (
+        "Yanlış hizalanma hangi üç eksende çözümleniyor?",
+        ["amaç|hedef|objective", "bilgi|information", "asil|principal|vekil"],
+    ),
+    (
+        "Değer uyumu sorunu temelde mühendislik sorunu mudur yoksa yönetişim sorunu mudur?",
+        ["yönetişim|governance|yönetim"],
+    ),
+    # --- 05: AGI tanımlanabilir ---
+    (
+        "AGI hangi ölçüte göre tanımlanıyor?",
+        ["yetişkin|adult"],
+    ),
+    (
+        "AGI tanımı hangi psikometri kuramına dayandırılıyor?",
+        ["cattell"],
+    ),
+    # --- 06: AGI söylemi eleştirisi (05 ile çelişir) ---
+    (
+        "AGI tanımlarının değer yüklü olduğunu savunan eleştiri ne diyor?",
+        ["değer|value|varsayım|assumption|siyas|politik|political"],
+    ),
     # --- hiçbir belgede olmayanlar ---
-    ("Bu dersin vize sınavı ne zaman yapılmıştı?", None),
-    ("Bulut Bilişim dersinin hocası kimdir?", None),
-    ("Bu projenin bütçesi kaç lira?", None),
+    ("Bu makalelerin toplam atıf sayısı kaçtır?", None),
+    ("Türkiye'de yapay zekâ yasası hangi tarihte yürürlüğe girdi?", None),
+    ("Yazarların çalıştığı kurumlardaki maaş ortalaması nedir?", None),
 ]
 
 
@@ -55,7 +89,8 @@ def main() -> int:
 
     print(f"chunk boyutu : {config.CHUNK_MAX_CHARS} / overlap {config.CHUNK_OVERLAP_CHARS}")
     print(f"veritabanı   : {toplam_chunk} chunk")
-    print(f"eşik         : {config.MIN_SIMILARITY}\n")
+    print(f"eşik         : {config.MIN_SIMILARITY}")
+    print(f"top_k        : {config.TOP_K}\n")
 
     client = FoundryClient()
     gecen = 0
@@ -83,11 +118,12 @@ def main() -> int:
 
         gecen += ok
         print(f"{'GECTI' if ok else 'KALDI'}  {soru}")
-        print(f"       ({cevap.elapsed_seconds:.1f} sn) {cevap.text.splitlines()[0][:100]}")
+        ilk_satir = next((s for s in cevap.text.splitlines() if s.strip()), "")
+        print(f"       ({cevap.elapsed_seconds:.1f} sn) {ilk_satir[:110]}")
         if not ok:
             print(f"       -> {sebep}")
             if cevap.hits:
-                print(f"       -> getirilen: " + ", ".join(
+                print("       -> getirilen: " + ", ".join(
                     f"{h.chunk.source}#{h.chunk.chunk_index}({h.score:.2f})" for h in cevap.hits
                 ))
         print()

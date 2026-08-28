@@ -22,7 +22,9 @@ Soru
 ```
 
 Eşiği (`MIN_SIMILARITY`) geçen hiçbir parça yoksa **model hiç çağrılmaz** ve doğrudan
-"bilmiyorum" döner — uydurmaya malzeme verilmez.
+"bilmiyorum" döner — uydurmaya malzeme verilmez. Model yine de "cevaplayamıyorum"
+deyip ardından uydurmaya devam ederse, cevap sabit ifadeye indirilir (ölçülmüş bir
+davranış: bir model "cevaplayamıyorum" dedikten sonra rakam uydurdu).
 
 ## Kullanılan modeller
 
@@ -35,12 +37,12 @@ Sohbet modeli tahminle değil **ölçülerek** seçildi: altı aday aynı Türk�
 denendi (`python tools/model_kiyas.py <alias> ...`). Elenenler ve sebepleri
 `src/foundry_rag/config.py` içinde yazılıdır.
 
-Foundry Local donanıma uygun varyantı kendisi seçer (CUDA GPU varsa onu kullanır).
-Model değiştirmek için kod düzenlemeye gerek yok:
+## Desteklenen belge türleri
 
-```bash
-set FOUNDRY_RAG_CHAT_MODEL=qwen2.5-7b
-```
+`.md` · `.txt` · `.docx` · `.pdf`
+
+PDF'ten yalnızca **metin katmanı** okunur — taranmış/fotoğraflanmış PDF'te metin
+yoktur, OCR yapılmaz; ingest böyle dosyaları atlayıp raporlar.
 
 ## Kurulum
 
@@ -69,42 +71,41 @@ C:\Users\<kullanici>\.FoundryLocalRAG\cache\models\
 
 Bu klasör `foundry` CLI'ın kendi cache'inden **ayrıdır** — `foundry cache list`
 bu modelleri göstermez ve aynı model iki kez inebilir. Klasör adı
-`config.APP_NAME` değerinden gelir.
-
-Yer açmak için kullanılmayan model klasörlerini doğrudan silebilirsiniz; eksik
-model bir sonraki çalıştırmada yeniden iner.
+`config.APP_NAME` değerinden gelir. Yer açmak için kullanılmayan model
+klasörlerini doğrudan silebilirsiniz; eksik model bir sonraki çalıştırmada
+yeniden iner.
 
 ## Kullanım
 
 ```bash
-# Ortam ve model kontrolü
-python main.py check
-
-# corpus/ klasöründeki belgeleri veritabanına yükle
-python main.py ingest
-
-# Tek soru
-python main.py ask "Yıllık izin kaç gün önceden istenir?"
-
-# Soru-cevap döngüsü
-python main.py chat
-
-# Veritabanında ne var
-python main.py status
+python main.py check                 # ortam ve model kontrolü
+python main.py ingest                # corpus/ klasörünü veritabanına yükle
+python main.py ingest --reset        # önce veritabanını temizleyerek yükle
+python main.py ask "sorunuz"         # tek soru
+python main.py chat                  # soru-cevap döngüsü
+python main.py status                # veritabanında ne var
 ```
 
-Belge eklemek için `corpus/` klasörüne `.md`, `.txt` veya `.docx` dosyası koyup
-`python main.py ingest` çalıştırmanız yeterli. Ingest **idempotent**tir: aynı dosya
-tekrar işlenirse kayıtlar çoğalmaz, güncellenir; belge kısaldıysa artık karşılığı
-olmayan eski parçalar silinir.
+Belge eklemek için `corpus/` klasörüne dosya koyup `ingest` çalıştırmanız yeterli.
+Ingest **idempotent**tir: aynı dosya tekrar işlenirse kayıtlar çoğalmaz, güncellenir;
+belge kısaldıysa artık karşılığı olmayan eski parçalar silinir.
+
+## Mevcut corpus: yapay zekâ felsefesi
+
+`corpus/` klasöründe, birbiriyle **çelişen** görüşleri temsil eden altı güncel arXiv
+makalesi vardır (bilinç, ahlaki statü, yapay kişilik, değer uyumu, AGI'nin
+tanımlanabilirliği ve bu tanımların eleştirisi). Künye, özetler ve indirme komutları
+[`KAYNAKLAR.md`](KAYNAKLAR.md) dosyasındadır.
+
+PDF'ler git'e girmez (telif + boyut); `KAYNAKLAR.md` yeniden indirme komutlarını tutar.
 
 ## Testler
 
 ```bash
-# Hızlı testler (model gerekmez, ~0.1 sn)  -> 46 test
+# Hızlı testler (model gerekmez, ~0.1 sn)  -> 49 test
 pytest
 
-# Gerçek modelle uçtan uca değerlendirme (~20 sn)  -> 13 test
+# Gerçek modelle uçtan uca değerlendirme (~16 sn)  -> 13 test
 set FOUNDRY_RAG_E2E=1
 pytest -m model -v
 ```
@@ -115,6 +116,39 @@ prompt kurgusunu sınar. `-m model` testleri ise sahte istemcinin gizleyebilece�
 Değerlendirme setinde **kasıtlı olarak cevaplanamaz sorular** vardır; model bunlara
 cevap uydurursa test kırmızı olur.
 
+## Doğruluk ölçümü
+
+```bash
+python tools/degerlendirme.py
+```
+
+13 soruluk set: cevaplanabilir sorularda cevapta bulunması gereken anahtarlar
+kontrol edilir, cevaplanamaz sorularda "bilmiyorum" beklenir. Sadece "bilmiyorum
+dedi mi" diye bakmak **yetmez** — yanlış belgeden uydurulmuş bir cevap da
+"bilmiyorum değil" olduğu için doğru sanılır.
+
+Sorular Türkçe, belgeler İngilizce — bu kasıtlı; anahtarlar `|` ile her iki dilde
+alternatif içerir ve Türkçe eklerini yakalasın diye köke yazılır.
+
+**Mevcut sonuç: 10/13, ortalama 1.9 sn.** Kalan üç hata retrieval'in kaçırdığı
+bilgilerdir (ilgili parça ilk üçe giremiyor).
+
+### En iyi chunk boyutu corpus'a bağlıdır
+
+Sabit bir doğru yoktur; **ölçmek gerekir**. İki zıt ölçüm:
+
+| corpus | 300 | 500-600 | 1000 | 1400 | 1800 |
+|---|---|---|---|---|---|
+| Kısa ders notu (4 belge) | **10/11** | 8/11 | — | — | — |
+| Akademik makale (6 belge) | 8/13 | 5/13 | 8/13 | **10/13** | 8/13 |
+
+Kısa belgede küçük chunk ayrıntıyı öne çıkarır. Uzun akademik metinde argüman
+bütünlüğü gerekir; binlerce küçük parça birbirine benzeyip kaybolur.
+
+**Yeni bir belge seti koyduğunuzda:** `tools/degerlendirme.py` içindeki soruları
+kendi belgelerinize göre yazın, birkaç chunk boyutu deneyin, en iyisini
+`config.py`'ye yazın.
+
 ## Yapı
 
 ```
@@ -122,29 +156,18 @@ main.py                    CLI
 src/foundry_rag/
   config.py                ayarlar (ortam değişkeniyle ezilebilir)
   client.py                Foundry Local: model indirme/yükleme, chat, embedding
-  chunking.py              belge okuma (.md/.txt/.docx) ve parçalama
+  chunking.py              belge okuma (.md/.txt/.docx/.pdf) ve parçalama
   db.py                    SQLite: chunk metni + float32 embedding BLOB
   retrieval.py             kosinüs benzerliği, top-K, eşik
   ingest.py                belge -> parça -> vektör -> veritabanı
   rag.py                   prompt kurgusu ve answer_query
 tools/model_kiyas.py       sohbet modellerini aynı sorularla kıyaslar
-corpus/                    kaynak belgeler
+tools/degerlendirme.py     corpus üzerinde cevap doğruluğunu ölçer
+corpus/                    kaynak belgeler (PDF'ler git'e girmez)
+KAYNAKLAR.md               corpus künyesi + indirme komutları
 data/rag.db                üretilen veritabanı (git'e girmez)
 tests/                     pytest
 ```
-
-## Ölçülen sonuçlar
-
-49 chunk'lık gerçek corpus üzerinde (RTX 4060, CUDA):
-
-| Ölçüm | Sonuç |
-|---|---|
-| Yanıt süresi (uçtan uca test) | 1.32 sn |
-| Yanıt süresi (gerçek corpus, uzun cevap) | 2.1 - 4.1 sn |
-| Eşik altı soru (model hiç çağrılmaz) | ~0.0 sn |
-| Embedding boyutu | 1024 |
-| Konuyla ilgili parça benzerliği | 0.39 - 0.57 |
-| Alakasız soruda en iyi parça | 0.30 - 0.31 |
 
 ## Ayarlar
 
@@ -154,36 +177,14 @@ tests/                     pytest
 | `FOUNDRY_RAG_EMBED_MODEL` | `qwen3-embedding-0.6b` | embedding modeli |
 | `FOUNDRY_RAG_CORPUS` | `corpus/` | belge klasörü |
 | `FOUNDRY_RAG_DB` | `data/rag.db` | veritabanı yolu |
+| `FOUNDRY_RAG_CHUNK_CHARS` | `1400` | chunk üst sınırı |
+| `FOUNDRY_RAG_CHUNK_OVERLAP` | `150` | chunk'lar arası taşınan bağlam |
+| `FOUNDRY_RAG_TOP_K` | `3` | bağlama alınacak parça sayısı |
+| `FOUNDRY_RAG_TEMPERATURE` | `0.0` | üretim sıcaklığı |
 | `FOUNDRY_RAG_E2E` | (kapalı) | `1` ise model gerektiren testler çalışır |
 
-Chunk boyutu, `TOP_K` ve `MIN_SIMILARITY` `src/foundry_rag/config.py` içindedir ve
-ortam değişkeniyle de ezilebilir (`FOUNDRY_RAG_CHUNK_CHARS`, `FOUNDRY_RAG_CHUNK_OVERLAP`,
-`FOUNDRY_RAG_TOP_K`) — kıyas yapmak için. **Chunk ayarını değiştirdikten sonra
-`python main.py ingest --reset` çalıştırmak gerekir.**
+**Chunk ayarını değiştirdikten sonra `python main.py ingest --reset` gerekir.**
 
-## Doğruluk ölçümü
-
-```bash
-python tools/degerlendirme.py
-```
-
-11 soruluk set: cevaplanabilir sorularda cevapta bulunması gereken anahtarlar
-kontrol edilir, cevaplanamaz sorularda "bilmiyorum" beklenir. Sadece "bilmiyorum
-dedi mi" diye bakmak yetmez — yanlış belgeden uydurulmuş bir cevap da
-"bilmiyorum değil" olduğu için doğru sanılır.
-
-Ölçülen sonuçlar (chunk boyutuna göre):
-
-| chunk | parça | doğru | ortalama süre |
-|---|---|---|---|
-| 1200 | 52 | 7/11 | 2.1 sn |
-| 500 | 141 | 8/11 | 2.0 sn |
-| **300** | **236** | **10/11** | **1.9 sn** |
-
-Süre ölçümü ISINMAYA duyarlıdır: model dosyaları işletim sisteminin cache'inde
-değilken ilk koşu 4.1-4.2 sn, sonraki koşular 1.9-2.4 sn çıkıyor. Doğruluk
-(10/11) her koşuda aynı kalıyor.
-
-`corpus/bulut_bilisim_hafta7.md` bu setin dayandığı örnek ders notudur; kendi
-belgelerinizle çalışırken silebilirsiniz (o zaman `tools/degerlendirme.py`
-içindeki soruları da kendi belgelerinize göre yazın).
+`temperature` varsayılanı 0'dır: ayar karşılaştırması yapabilmek için üretimin
+tekrarlanabilir olması gerekiyor. 0.2'de aynı ayarla yapılan koşuların aynı sonucu
+verdiğinden emin olunamıyordu; 0.0'da iki koşu birebir aynı çıkıyor.
