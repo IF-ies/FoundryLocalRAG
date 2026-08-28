@@ -17,5 +17,5 @@ data/*.db-journal
 Thumbs.db
 desktop.ini
 
-# Corpus PDF'leri git'e girmez (telif + boyut); corpus/00-kaynaklar.md indirme komutlarini tutar
+# Corpus PDF'leri git'e girmez (telif + boyut); KAYNAKLAR.md indirme komutlarini tutar
 corpus/*.pdf
