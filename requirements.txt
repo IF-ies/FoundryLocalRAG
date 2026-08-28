@@ -1,0 +1,14 @@
+# Foundry Local Python SDK — yerel servisi başlatır, model indirir/yükler
+foundry-local-sdk>=0.4.0
+
+# Foundry Local OpenAI-uyumlu API sunar; chat ve embedding çağrıları bununla yapılır
+openai>=1.60.0
+
+# Vektör işlemleri (cosine similarity)
+numpy>=2.0.0
+
+# .docx belgelerini okumak için
+python-docx>=1.1.0
+
+# Test
+pytest>=8.0.0
