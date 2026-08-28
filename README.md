@@ -59,6 +59,21 @@ pip install -r requirements.txt
 
 İlk çalıştırmada modeller indirilir (**internet gerekir**). Sonrasında her şey offline.
 
+### Model cache'i nerede?
+
+SDK, modelleri **uygulama adına göre ayrı** bir klasöre indirir:
+
+```
+C:\Users\<kullanici>\.FoundryLocalRAG\cache\models\
+```
+
+Bu klasör `foundry` CLI'ın kendi cache'inden **ayrıdır** — `foundry cache list`
+bu modelleri göstermez ve aynı model iki kez inebilir. Klasör adı
+`config.APP_NAME` değerinden gelir.
+
+Yer açmak için kullanılmayan model klasörlerini doğrudan silebilirsiniz; eksik
+model bir sonraki çalıştırmada yeniden iner.
+
 ## Kullanım
 
 ```bash

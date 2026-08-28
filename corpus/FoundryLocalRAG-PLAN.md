@@ -170,10 +170,16 @@ Hepsi ölçülerek doğrulandı (49 chunk'lık gerçek corpus + 13 uçtan uca te
   olduğu hâlde "cevaplayamıyorum" diyordu. "Kısmen cevaplıyorsa cevaplayabildiğin
   kadarını ver" kuralı eklenince yanlış negatif kalktı, cevaplanamaz sorular
   yine "bilmiyorum" demeye devam etti (13/13 e2e testi geçiyor).
+- **SDK model cache'i uygulama adına göre ayrılıyor.** Modeller
+  `~/.FoundryLocalRAG/cache/models/` altına indi; `foundry cache list` bunları
+  GÖRMÜYOR (CLI kendi klasörüne bakıyor). Altı aday denenince ~15 GB birikti ve
+  CLI "hiç model yok" dediği için fark edilmesi zor oldu.
 - **Diakritiksiz Türkçe küçük modelleri bozuyor.** `check` komutunda soru
   "Turkiye'nin baskenti" diye ASCII yazılınca `phi-3.5-mini` anlamsız tekrar
   döngüsüne girdi; düzgün Türkçeyle aynı model "Ankara" dedi.
 
 ## 7. Sonraki Adım
+- Kullanılmayan model klasörlerini sil (~15 GB): `~/.FoundryLocalRAG/cache/models/`
+  altında yalnızca `ministral-3-3b-*` ve `qwen3-embedding-0.6b-*` gerekli
 - Gerçek ders notlarını `corpus/` klasörüne koyup tekrar `ingest` (seçenek **a**)
 - Ardından → **Seviye 2: `IF-ies_PrivateAI`** (çok kullanıcılı, rol bazlı, on-prem kurumsal ürün)
