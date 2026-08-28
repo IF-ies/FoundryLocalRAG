@@ -178,7 +178,11 @@ dedi mi" diye bakmak yetmez — yanlış belgeden uydurulmuş bir cevap da
 |---|---|---|---|
 | 1200 | 52 | 7/11 | 2.1 sn |
 | 500 | 141 | 8/11 | 2.0 sn |
-| **300** | **228** | **10/11** | **1.9 sn** |
+| **300** | **236** | **10/11** | **1.9 sn** |
+
+Süre ölçümü ISINMAYA duyarlıdır: model dosyaları işletim sisteminin cache'inde
+değilken ilk koşu 4.1-4.2 sn, sonraki koşular 1.9-2.4 sn çıkıyor. Doğruluk
+(10/11) her koşuda aynı kalıyor.
 
 `corpus/bulut_bilisim_hafta7.md` bu setin dayandığı örnek ders notudur; kendi
 belgelerinizle çalışırken silebilirsiniz (o zaman `tools/degerlendirme.py`

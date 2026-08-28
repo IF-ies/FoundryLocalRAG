@@ -135,7 +135,8 @@ Hepsi ölçülerek doğrulandı (228 chunk'lık corpus + 13 uçtan uca test + 11
 - ✅ İnternetsiz çalışır (modeller indirildikten sonra)
 - ✅ Belge havuzunda olan soruya **kaynak-temelli doğru** cevap verir
 - ✅ Bilgi yoksa **"bilmiyorum"** der — eşiği geçen parça yoksa model hiç çağrılmaz
-- ✅ Yanıt süresi **1.32 sn** (hedef 1-3 sn), gerçek corpus'ta ortalama 1.9 sn
+- ✅ Yanıt süresi **1.32 sn** (hedef 1-3 sn), gerçek corpus'ta 1.9-2.4 sn
+  (dosya cache'i soğukken ilk koşu 4.1 sn; doğruluk etkilenmiyor)
 - ✅ Değerlendirme seti **10/11** — kalan tek soru Seviye 1'in bilinen mimari
   sınırı: doğru cevabı içeren parça 11. sırada (skor 0.745), ilk üçe giremiyor
   çünkü aynı belgenin benzer parçaları 0.76-0.82 ile önünde. Brute-force cosine
