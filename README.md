@@ -156,5 +156,30 @@ tests/                     pytest
 | `FOUNDRY_RAG_DB` | `data/rag.db` | veritabanı yolu |
 | `FOUNDRY_RAG_E2E` | (kapalı) | `1` ise model gerektiren testler çalışır |
 
-Chunk boyutu, `TOP_K` ve `MIN_SIMILARITY` gibi ayarlar `src/foundry_rag/config.py`
-içindedir.
+Chunk boyutu, `TOP_K` ve `MIN_SIMILARITY` `src/foundry_rag/config.py` içindedir ve
+ortam değişkeniyle de ezilebilir (`FOUNDRY_RAG_CHUNK_CHARS`, `FOUNDRY_RAG_CHUNK_OVERLAP`,
+`FOUNDRY_RAG_TOP_K`) — kıyas yapmak için. **Chunk ayarını değiştirdikten sonra
+`python main.py ingest --reset` çalıştırmak gerekir.**
+
+## Doğruluk ölçümü
+
+```bash
+python tools/degerlendirme.py
+```
+
+11 soruluk set: cevaplanabilir sorularda cevapta bulunması gereken anahtarlar
+kontrol edilir, cevaplanamaz sorularda "bilmiyorum" beklenir. Sadece "bilmiyorum
+dedi mi" diye bakmak yetmez — yanlış belgeden uydurulmuş bir cevap da
+"bilmiyorum değil" olduğu için doğru sanılır.
+
+Ölçülen sonuçlar (chunk boyutuna göre):
+
+| chunk | parça | doğru | ortalama süre |
+|---|---|---|---|
+| 1200 | 52 | 7/11 | 2.1 sn |
+| 500 | 141 | 8/11 | 2.0 sn |
+| **300** | **228** | **10/11** | **1.9 sn** |
+
+`corpus/bulut_bilisim_hafta7.md` bu setin dayandığı örnek ders notudur; kendi
+belgelerinizle çalışırken silebilirsiniz (o zaman `tools/degerlendirme.py`
+içindeki soruları da kendi belgelerinize göre yazın).

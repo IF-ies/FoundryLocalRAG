@@ -21,6 +21,20 @@ class IngestReport(NamedTuple):
         return line
 
 
+def embedding_metni(source: str, content: str) -> str:
+    """Vektörü üretilecek metin: içeriğin ÖNÜNE kaynak adı eklenir.
+
+    Chunk küçüldükçe parçanın hangi belgeden geldiği bilgisi kayboluyor ve aynı
+    konuyu işleyen iki belge birbirine karışıyordu — ölçümde "FoundryLocalRAG
+    projesinde hangi embedding modeli" sorusuna komşu projenin modeli (bge-m3)
+    cevap olarak geldi. Kaynak adını vektöre katmak bu ayrımı geri kazandırıyor.
+
+    Saklanan içerik DEĞİŞMEZ; ön ek yalnızca embedding'e girer, kullanıcıya
+    gösterilen metne değil.
+    """
+    return f"{source}\n\n{content}"
+
+
 def ingest_corpus(
     client,
     conn: sqlite3.Connection,
@@ -57,7 +71,7 @@ def ingest_corpus(
         say(f"  {source}: {len(chunks)} chunk")
         for start in range(0, len(chunks), batch_size):
             batch = chunks[start : start + batch_size]
-            vectors = client.embed(batch)
+            vectors = client.embed([embedding_metni(source, c) for c in batch])
             if len(vectors) != len(batch):
                 raise RuntimeError(
                     f"Embedding sayısı chunk sayısıyla uyuşmuyor: {len(vectors)} != {len(batch)}"

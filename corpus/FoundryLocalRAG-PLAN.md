@@ -130,12 +130,17 @@ yapıldı — Azure aboneliği devreye girmedi, ücret oluşmadı.
 
 ## 5. Başarı Kriterleri
 
-Hepsi ölçülerek doğrulandı (49 chunk'lık gerçek corpus + 13 uçtan uca test):
+Hepsi ölçülerek doğrulandı (228 chunk'lık corpus + 13 uçtan uca test + 11 soruluk değerlendirme seti):
 
 - ✅ İnternetsiz çalışır (modeller indirildikten sonra)
 - ✅ Belge havuzunda olan soruya **kaynak-temelli doğru** cevap verir
 - ✅ Bilgi yoksa **"bilmiyorum"** der — eşiği geçen parça yoksa model hiç çağrılmaz
-- ✅ Yanıt süresi **1.32 sn** (hedef 1-3 sn), gerçek corpus'ta 2.1-4.1 sn
+- ✅ Yanıt süresi **1.32 sn** (hedef 1-3 sn), gerçek corpus'ta ortalama 1.9 sn
+- ✅ Değerlendirme seti **10/11** — kalan tek soru Seviye 1'in bilinen mimari
+  sınırı: doğru cevabı içeren parça 11. sırada (skor 0.745), ilk üçe giremiyor
+  çünkü aynı belgenin benzer parçaları 0.76-0.82 ile önünde. Brute-force cosine
+  bu kadar yakın skorları ayıramaz; **Seviye 2'nin planındaki reranker** tam
+  olarak bunun için var.
 
 ## 6. Öğrenilenler
 
@@ -170,6 +175,24 @@ Hepsi ölçülerek doğrulandı (49 chunk'lık gerçek corpus + 13 uçtan uca te
   olduğu hâlde "cevaplayamıyorum" diyordu. "Kısmen cevaplıyorsa cevaplayabildiğin
   kadarını ver" kuralı eklenince yanlış negatif kalktı, cevaplanamaz sorular
   yine "bilmiyorum" demeye devam etti (13/13 e2e testi geçiyor).
+- **Chunk boyutu ölçülerek seçildi: 1200 → 7/11, 500 → 8/11, 300 → 10/11.**
+  Büyük chunk'ta bir ders notunun tamamı tek vektöre sıkışıyor ve içindeki
+  ayrıntılar ("proje teslimi 7 Ocak", "geç teslim 10 puan") sorguya yakın
+  çıkmıyordu. Küçük chunk hem daha doğru hem daha hızlı (2.1 → 1.9 sn).
+- **`TOP_K` artırmak işe yaramadı.** 3 → 5 iki ayrı ölçümde doğruluğu hiç
+  değiştirmedi, süreyi 1.9 → 2.5 sn'ye çıkardı.
+- **Chunk küçülünce parçanın hangi belgeden geldiği kayboluyor.** "Bu projede
+  hangi embedding modeli" sorusuna komşu projenin modeli (`bge-m3`) cevap
+  olarak geldi. Çözüm: vektör üretilirken metnin önüne kaynak adı ekleniyor
+  (`ingest.embedding_metni`) — saklanan içerik değişmiyor. Bundan sonra doğru
+  belgeden parça gelmeye başladı (skor 0.62 → 0.82).
+- **Değerlendirme "bilmiyorum dedi mi" ile yapılamaz.** İlk doğrulama betiğim
+  sadece buna bakıyordu ve "Geç teslimde ücret oluşmadığı için 0 puan kırılıyor"
+  gibi TAMAMEN YANLIŞ bir cevabı GEÇTİ saydı. Artık her cevaplanabilir sorunun
+  cevabında bulunması gereken anahtarlar da kontrol ediliyor
+  (`tools/degerlendirme.py`). Anahtarlar Türkçe eklerini yakalayacak şekilde
+  köke yazılır ve "|" ile alternatif verilir; aksi hâlde DOĞRU cevap yanlış
+  sayılıyordu ("çekirdeğini" ≠ "çekirdek", "kullanılmaz" ≠ "kullanılamaz").
 - **SDK model cache'i uygulama adına göre ayrılıyor.** Modeller
   `~/.FoundryLocalRAG/cache/models/` altına indi; `foundry cache list` bunları
   GÖRMÜYOR (CLI kendi klasörüne bakıyor). Altı aday denenince ~15 GB birikti ve

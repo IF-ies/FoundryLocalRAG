@@ -26,12 +26,17 @@ CHAT_MODEL_ALIAS = os.environ.get("FOUNDRY_RAG_CHAT_MODEL", "ministral-3-3b-inst
 EMBED_MODEL_ALIAS = os.environ.get("FOUNDRY_RAG_EMBED_MODEL", "qwen3-embedding-0.6b")
 
 # Chunk'lama: paragraf sınırlarında böl, bu üst sınırı aşma.
-CHUNK_MAX_CHARS = 1200
+# ÖLÇÜLDÜ (tools/degerlendirme.py, 11 soruluk set): 1200 -> 7/11, 500 -> 8/11,
+# 300 -> 10/11. Tek chunk'a çok konu sığdırınca embedding bulanıklaşıyor ve
+# içindeki ayrıntı sorguya yakın çıkmıyor. Küçük chunk hem daha doğru hem hızlı.
+CHUNK_MAX_CHARS = int(os.environ.get("FOUNDRY_RAG_CHUNK_CHARS", "300"))
 # Ardışık chunk'lar arasında taşınan bağlam (cümle ortasında kopan bilgi için).
-CHUNK_OVERLAP_CHARS = 150
+CHUNK_OVERLAP_CHARS = int(os.environ.get("FOUNDRY_RAG_CHUNK_OVERLAP", "100"))
 
 # Retrieval
-TOP_K = 3
+# TOP_K=5 iki kez denendi, doğruluğa hiçbir katkısı olmadı ama süreyi
+# 1.9 -> 2.5 sn'ye çıkardı. 3'te kalıyor.
+TOP_K = int(os.environ.get("FOUNDRY_RAG_TOP_K", "3"))
 # Bu benzerliğin altındaki hiçbir chunk bağlama girmez -> model "bilmiyorum" der.
 # ÖLÇÜLDÜ (gerçek corpus, 28 Ağu 2026): konuyla ilgili parçalar 0.39-0.57
 # aralığında, alakasız sorularda en iyi parça 0.30-0.31'de kalıyor.
